@@ -288,32 +288,78 @@ struct IKCPSEG
 //---------------------------------------------------------------------
 struct IKCPCB
 {
-	IUINT32 conv, mtu, mss, state;
-	IUINT32 snd_una, snd_nxt, rcv_nxt;
-	IUINT32 ts_recent, ts_lastack, ssthresh;
-	IINT32 rx_rttval, rx_srtt, rx_rto, rx_minrto;
-	IUINT32 snd_wnd, rcv_wnd, rmt_wnd, cwnd, probe;
-	IUINT32 current, interval, ts_flush, xmit;
-	IUINT32 nrcv_buf, nsnd_buf;
-	IUINT32 nrcv_que, nsnd_que;
-	IUINT32 nodelay, updated;
-	IUINT32 ts_probe, probe_wait;
-	IUINT32 dead_link, incr;
-	struct IQUEUEHEAD snd_queue;
-	struct IQUEUEHEAD rcv_queue;
-	struct IQUEUEHEAD snd_buf;
-	struct IQUEUEHEAD rcv_buf;
-	IUINT32 *acklist;
-	IUINT32 ackcount;
-	IUINT32 ackblock;
-	void *user;
-	char *buffer;
-	int fastresend;
-	int fastlimit;
-	int nocwnd, stream;
-	int logmask;
+	//基础信息字段
+	IUINT32 conv;      // 会话 ID，用于标识一个会话
+	IUINT32 mtu;       // 最大传输单元
+	IUINT32 mss;       // 最大分片大小 (mtu - IKCP_OVERHEAD)
+	IUINT32 state;     // 连接状态
+	
+	//时间相关
+	IUINT32 interval;  // 内部flush刷新间隔
+	IUINT32 current;   // 当前时间
+	IUINT32 ts_flush;  // 下次刷新时间
+	IUINT32 xmit;      // 重传次数
+
+	//	协议参数
+	IUINT32 nodelay;   // 是否启用 nodelay 模式
+	IUINT32 updated;   // 是否更新过
+	int fastresend;    // 快速重传触发次数
+	int fastlimit;     // 快速重传限制
+	int nocwnd;        // 是否关闭拥塞控制
+	int stream;        // 是否开启流模式
+
+	//发送和接收序号相关
+	IUINT32 snd_una;   // 第一个未确认的包序号
+	IUINT32 snd_nxt;   // 下一个待发送的包的序号
+	IUINT32 rcv_nxt;   // 下一个要接收的包的序号
+
+	//RTT（往返时延）相关
+	IINT32 rx_rttval;  // RTT 的变化量
+	IINT32 rx_srtt;    // 平滑后的 RTT
+	IINT32 rx_rto;     // 超时重传时间
+	IINT32 rx_minrto;  // 最小重传超时时间
+
+	//窗口相关
+	IUINT32 snd_wnd;   // 发送窗口大小
+	IUINT32 rcv_wnd;   // 接收窗口大小
+	IUINT32 rmt_wnd;   // 远端接收窗口大小
+	IUINT32 cwnd;      // 拥塞窗口大小
+	IUINT32 probe;     // 探测标志
+	IUINT32 ssthresh;    // 慢启动阈值
+	IUINT32 incr;       // 拥塞窗口增量
+
+
+	//缓存队列
+	struct IQUEUEHEAD snd_queue;  // 发送队列
+	struct IQUEUEHEAD rcv_queue;  // 接收队列
+	struct IQUEUEHEAD snd_buf;    // 发送缓存
+	struct IQUEUEHEAD rcv_buf;    // 接收缓存
+	IUINT32 nrcv_buf;  // 接收缓存中的包数量
+	IUINT32 nsnd_buf;  // 发送缓存中的包数量
+	IUINT32 nrcv_que;  // 接收队列中的包数量
+	IUINT32 nsnd_que;  // 发送队列中的包数量
+
+	//ACK 相关
+	IUINT32 *acklist;   // ACK 列表
+	IUINT32 ackcount;   // ACK 数量
+	IUINT32 ackblock;   // ACK 列表大小
+	IUINT32 ts_recent;   // 最近一次收到对方包的时间戳
+	IUINT32 ts_lastack;  // 最近一次发送 ACK 的时间戳
+
+	//探测相关
+	IUINT32 ts_probe;    // 下次探测窗口的时间戳
+	IUINT32 probe_wait;  // 探测等待时间
+
+	// 数据输出回调函数
 	int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user);
+	// 日志输出回调函数
 	void (*writelog)(const char *log, struct IKCPCB *kcp, void *user);
+
+	//其他
+	void *user;         // 用户数据指针
+	char *buffer;       // 内部缓存
+	int logmask;        // 日志掩码
+	IUINT32 dead_link;  // 连接断开检测阈值
 };
 
 
@@ -412,5 +458,3 @@ IUINT32 ikcp_getconv(const void *ptr);
 #endif
 
 #endif
-
-
