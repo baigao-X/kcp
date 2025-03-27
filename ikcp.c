@@ -37,7 +37,7 @@ const IUINT32 IKCP_WND_RCV = 128;       // must >= max fragment size
 const IUINT32 IKCP_MTU_DEF = 1400;
 const IUINT32 IKCP_ACK_FAST	= 3;
 const IUINT32 IKCP_INTERVAL	= 100;
-const IUINT32 IKCP_OVERHEAD = 24;
+const IUINT32 IKCP_OVERHEAD = 24;       //kcp 头数据
 const IUINT32 IKCP_DEADLINK = 20;
 const IUINT32 IKCP_THRESH_INIT = 2;
 const IUINT32 IKCP_THRESH_MIN = 2;
@@ -466,19 +466,26 @@ int ikcp_peeksize(const ikcpcb *kcp)
 //---------------------------------------------------------------------
 // user/upper level send, returns below zero for error
 //---------------------------------------------------------------------
+
+//将要发送的数据加入到发送队列snd_queue中
 int ikcp_send(ikcpcb *kcp, const char *buffer, int len)
 {
 	IKCPSEG *seg;
-	int count, i;
-	int sent = 0;
+	int count;  //表示当前的数据需要多少分片。一个分片最多mss大小
+	int i;
+	int sent = 0; //发送的数据量长度
 
 	assert(kcp->mss > 0);
 	if (len < 0) return -1;
 
 	// append to previous segment in streaming mode (if possible)
+	// 如果开启了流模式，尝试将数据合并到最后一个段
 	if (kcp->stream != 0) {
+		// 如果发送队列不为空，尝试将数据追加到最后一个段
+		// 每个段最多mss大小
 		if (!iqueue_is_empty(&kcp->snd_queue)) {
 			IKCPSEG *old = iqueue_entry(kcp->snd_queue.prev, IKCPSEG, node);
+			// 如果最后一个段的数据长度小于MSS，可以尝试合并
 			if (old->len < kcp->mss) {
 				int capacity = kcp->mss - old->len;
 				int extend = (len < capacity)? len : capacity;
@@ -488,6 +495,7 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len)
 					return -2;
 				}
 				iqueue_add_tail(&seg->node, &kcp->snd_queue);
+				
 				memcpy(seg->data, old->data, old->len);
 				if (buffer) {
 					memcpy(seg->data + old->len, buffer, extend);
@@ -501,6 +509,7 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len)
 				sent = extend;
 			}
 		}
+		// 如果数据已经全部合并，直接返回
 		if (len <= 0) {
 			return sent;
 		}
@@ -509,15 +518,18 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len)
 	if (len <= (int)kcp->mss) count = 1;
 	else count = (len + kcp->mss - 1) / kcp->mss;
 
+	// 分片数量不能超过最大限制
 	if (count >= (int)IKCP_WND_RCV) {
 		if (kcp->stream != 0 && sent > 0) 
 			return sent;
 		return -2;
 	}
 
+    // 如果分片数量为0，至少需要一个分片
 	if (count == 0) count = 1;
 
 	// fragment
+	// 创建所有分片
 	for (i = 0; i < count; i++) {
 		int size = len > (int)kcp->mss ? (int)kcp->mss : len;
 		seg = ikcp_segment_new(kcp, size);
@@ -755,8 +767,9 @@ void ikcp_parse_data(ikcpcb *kcp, IKCPSEG *newseg)
 //---------------------------------------------------------------------
 int ikcp_input(ikcpcb *kcp, const char *data, long size)
 {
-	IUINT32 prev_una = kcp->snd_una;
-	IUINT32 maxack = 0, latest_ts = 0;
+	IUINT32 prev_una = kcp->snd_una; // 记录当前未确认包的序号
+	IUINT32 maxack = 0
+	IUINT32 latest_ts = 0;
 	int flag = 0;
 
 	if (ikcp_canlog(kcp, IKCP_LOG_INPUT)) {
@@ -766,9 +779,14 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 	if (data == NULL || (int)size < (int)IKCP_OVERHEAD) return -1;
 
 	while (1) {
-		IUINT32 ts, sn, len, una, conv;
-		IUINT16 wnd;
-		IUINT8 cmd, frg;
+		IUINT32 conv;  //会话ID
+		IUINT8  frg;   //分片序号(倒序)
+		IUINT8  cmd;   //命令
+		IUINT16 wnd;   //剩余接收窗口大小
+		IUINT32 ts;    //时间戳
+		IUINT32 sn;    //序列号
+		IUINT32 una;   //确认号
+		IUINT32 len;   //数据长度
 		IKCPSEG *seg;
 
 		if (size < (int)IKCP_OVERHEAD) break;
@@ -1302,5 +1320,3 @@ IUINT32 ikcp_getconv(const void *ptr)
 	ikcp_decode32u((const char*)ptr, &conv);
 	return conv;
 }
-
-

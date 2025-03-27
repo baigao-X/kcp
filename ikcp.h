@@ -264,24 +264,24 @@ typedef struct IQUEUEHEAD iqueue_head;
 //=====================================================================
 // SEGMENT
 //=====================================================================
+//KCP 数据段（segment）
 struct IKCPSEG
 {
-	struct IQUEUEHEAD node;
-	IUINT32 conv;
-	IUINT32 cmd;
-	IUINT32 frg;
-	IUINT32 wnd;
-	IUINT32 ts;
-	IUINT32 sn;
-	IUINT32 una;
-	IUINT32 len;
-	IUINT32 resendts;
-	IUINT32 rto;
-	IUINT32 fastack;
-	IUINT32 xmit;
-	char data[1];
+    struct IQUEUEHEAD node;  // 链表节点，用于将段插入到各种队列中
+    IUINT32 conv;            // 会话ID，用于标识一个会话
+    IUINT32 cmd;             // 命令类型，如数据、ACK、窗口探测等
+    IUINT32 frg;             // 分片序号，用于消息分片，0表示最后一个分片, 流式数据，不会有分片概念，固定为0
+    IUINT32 wnd;             // 剩余接收窗口大小
+    IUINT32 ts;              // 时间戳
+    IUINT32 sn;              // 序列号
+    IUINT32 una;             // 确认号，表示该号之前的包都已收到
+    IUINT32 len;             // 数据长度，表示data中的实际数据长度
+    IUINT32 resendts;        // 重发时间戳，指示何时需要重发
+    IUINT32 rto;             // 超时重传时间，根据RTT动态计算
+    IUINT32 fastack;         // 快速重传计数器,当收到乱序的ACK时,会增加这个计数，当该值超过阈值会触发快速重传
+    IUINT32 xmit;            // 传输次数，用于统计重传次数
+    char data[1];            // 数据区域，柔性数组成员
 };
-
 
 //---------------------------------------------------------------------
 // IKCPCB
