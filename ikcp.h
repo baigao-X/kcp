@@ -308,10 +308,6 @@ struct IKCPCB
 	int nocwnd;        // 是否关闭拥塞控制
 	int stream;        // 是否开启流模式
 
-	//发送和接收序号相关
-	IUINT32 snd_una;   // 第一个未确认的包序号
-	IUINT32 snd_nxt;   // 下一个待发送的包的序号
-	IUINT32 rcv_nxt;   // 下一个要接收的包的序号
 
 	//RTT（往返时延）相关
 	IINT32 rx_rttval;  // RTT 的变化量
@@ -321,26 +317,30 @@ struct IKCPCB
 
 	//窗口相关
 	IUINT32 snd_wnd;   // 发送窗口大小
-	IUINT32 rcv_wnd;   // 接收窗口大小
+	IUINT32 rcv_wnd;   // 接收窗口大小，1表示一个序号
 	IUINT32 rmt_wnd;   // 远端接收窗口大小
 	IUINT32 cwnd;      // 拥塞窗口大小
 	IUINT32 probe;     // 探测标志
-	IUINT32 ssthresh;    // 慢启动阈值
-	IUINT32 incr;       // 拥塞窗口增量
+	IUINT32 ssthresh;    // 慢启动阈值， 慢启动之前拥塞窗口增长量线性增长
+	IUINT32 incr;       // 拥塞窗口增量, = cmd * mss
 
 
-	//缓存队列
+	//缓存队列,发送和接收序号相关
+	IUINT32 snd_una;   // 第一个未确认的包序号, 每次接收后根据对端返回的una更新。 如果已发送的数据对端完成全部确认，该值等于snd_nxt
+	IUINT32 snd_nxt;   // 下一个待发送的包的序号
+	IUINT32 rcv_nxt;   // 下一个要接收的包的序号 ,如 已经接收到的数据序号为 1,2,4. rcv_nxt = 3
+
 	struct IQUEUEHEAD snd_queue;  // 发送队列
-	struct IQUEUEHEAD rcv_queue;  // 接收队列
-	struct IQUEUEHEAD snd_buf;    // 发送缓存
-	struct IQUEUEHEAD rcv_buf;    // 接收缓存
+	struct IQUEUEHEAD rcv_queue;  // 接收队列, 已经序号连续完整的已接收数据
+	struct IQUEUEHEAD snd_buf;    // 发送缓存,已发送，但是未确认的数据放置在缓冲区中
+	struct IQUEUEHEAD rcv_buf;    // 接收缓存, 序号未连续的数据包将暂存在这里。序号连续的数据将会转移到接收队列中
+	IUINT32 nrcv_que;  // 接收队列中的包数量， 多个分片组成的一个包，表示1
+	IUINT32 nsnd_que;  // 发送队列中的包数量
 	IUINT32 nrcv_buf;  // 接收缓存中的包数量
 	IUINT32 nsnd_buf;  // 发送缓存中的包数量
-	IUINT32 nrcv_que;  // 接收队列中的包数量
-	IUINT32 nsnd_que;  // 发送队列中的包数量
 
 	//ACK 相关
-	IUINT32 *acklist;   // ACK 列表
+	IUINT32 *acklist;   // ACK 列表 [sn 收到的序列号,ts包中的时间戳]
 	IUINT32 ackcount;   // ACK 数量
 	IUINT32 ackblock;   // ACK 列表大小
 	IUINT32 ts_recent;   // 最近一次收到对方包的时间戳

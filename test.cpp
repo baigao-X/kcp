@@ -177,5 +177,3 @@ avgrtt=156 maxrtt=571
 fast mode result (20207ms):
 avgrtt=138 maxrtt=392
 */
-
-
